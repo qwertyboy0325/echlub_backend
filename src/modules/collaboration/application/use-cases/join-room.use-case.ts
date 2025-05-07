@@ -1,4 +1,3 @@
-import { Room } from '../../domain/aggregates/room.aggregate';
 import { IRoomRepository } from '../interfaces/room.repository.interface';
 import { DomainEventPublisher } from '../../../../shared/domain/DomainEventPublisher';
 import Logger from '../../../../shared/utils/logger';

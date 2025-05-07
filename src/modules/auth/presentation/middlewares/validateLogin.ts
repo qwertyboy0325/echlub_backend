@@ -8,7 +8,7 @@ import { AppError } from '../../../../shared/domain/AppError';
  */
 export function validateLoginMiddleware(
   req: Request, 
-  res: Response, 
+  _res: Response, 
   next: NextFunction
 ): void {
   try {

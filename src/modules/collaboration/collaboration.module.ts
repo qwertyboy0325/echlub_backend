@@ -22,8 +22,10 @@ export class CollaborationModule {
   private readonly connectionService: ConnectionService;
   private readonly monitoringService: MonitoringService;
   private readonly roomController: RoomController;
-  private collaborationGateway: CollaborationGateway;
-
+  
+  // Gateway 實例，保存以確保長期存活並處理 WebSocket 連接
+  private collaborationGateway: CollaborationGateway | null = null;
+  
   constructor() {
     this.logger = new Logger(CollaborationModule.name);
     this.eventPublisher = new DomainEventPublisher();
@@ -128,7 +130,7 @@ export class CollaborationModule {
       // 啟動監控服務
       this.startMonitoring();
       
-      this.logger.info('Collaboration Module initialized successfully');
+      this.logger.info(`Collaboration Module initialized successfully. Gateway active: ${!!this.collaborationGateway}`);
     } catch (error) {
       this.logger.error('Failed to initialize Collaboration Module:', error);
       throw error;

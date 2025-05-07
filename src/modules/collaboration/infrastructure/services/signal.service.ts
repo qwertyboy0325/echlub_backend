@@ -4,33 +4,17 @@ import type { DomainEventPublisher } from '../../../../shared/domain/DomainEvent
 import Logger from '../../../../shared/utils/logger';
 import { MessageQueueService } from './message-queue.service';
 import type { MonitoringService } from './monitoring.service';
-import { 
-  SignalIceCandidateEvent, 
-  SignalOfferEvent, 
-  SignalAnswerEvent,
-  SignalErrorEvent,
-  RTCIceCandidate,
-  RTCSessionDescription
-} from '../../domain/events/signal.events';
-import { 
-  IceCandidateVO, 
-  OfferVO, 
-  AnswerVO 
-} from '../../domain/value-objects/signaling.vo';
 
-interface SignalData {
-  roomId: string;
-  from: string;
-  to: string;
-  candidate?: RTCIceCandidate;
-  offer?: RTCSessionDescription;
-  answer?: RTCSessionDescription;
-}
+// Unused value objects but might be needed in the future
+// import { 
+//   IceCandidateVO, 
+//   OfferVO, 
+//   AnswerVO 
+// } from '../../domain/value-objects/signaling.vo';
 
 export class SignalService {
   private readonly logger: Logger;
   private readonly processingConnections: Set<string> = new Set();
-  private readonly MAX_BATCH_SIZE: number = 10;
   private readonly PROCESSING_DELAY: number = 50; // 處理延遲（毫秒）
 
   constructor(

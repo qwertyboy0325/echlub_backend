@@ -4,7 +4,6 @@ import { SignalService } from '../services/signal.service';
 import { ConnectionService } from '../services/connection.service';
 import { RoomRepository } from '../repositories/room.repository';
 import { PeerRepository } from '../repositories/peer.repository';
-import { CreateRoomUseCase } from '../../application/use-cases/create-room.use-case';
 import { JoinRoomUseCase } from '../../application/use-cases/join-room.use-case';
 import { LeaveRoomUseCase } from '../../application/use-cases/leave-room.use-case';
 import { DomainEventPublisher } from '../../../../shared/domain/DomainEventPublisher';
@@ -298,7 +297,7 @@ export class CollaborationGateway {
   }
   
   // 處理連接狀態變更
-  private async handleConnectionState(socket: Socket, data: { roomId: string; peerId: string; state: string }): Promise<void> {
+  private async handleConnectionState(_socket: Socket, data: { roomId: string; peerId: string; state: string }): Promise<void> {
     try {
       this.logger.debug(`Connection state update from ${data.peerId}: ${data.state}`);
       
