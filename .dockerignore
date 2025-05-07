@@ -1,0 +1,35 @@
+# 依賴目錄
+node_modules
+npm-debug.log
+
+# 構建輸出
+dist
+build
+
+# 版本控制
+.git
+.gitignore
+
+# 環境文件
+.env
+.env.local
+.env.*.local
+
+# 日誌
+logs
+*.log
+
+# 測試文件
+coverage
+.nyc_output
+
+# 編輯器配置
+.idea
+.vscode
+*.swp
+*.swo
+
+# 其他
+.DS_Store
+README.md
+LICENSE 
