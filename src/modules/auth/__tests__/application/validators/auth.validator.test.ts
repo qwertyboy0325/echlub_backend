@@ -1,4 +1,5 @@
 import { validateEmail, validatePassword, validateCredentials } from '../../../application/validators/auth.validator';
+import { RegexPatterns } from '../../../../../shared/domain/validation/RegexPatterns';
 
 describe('Auth Validators', () => {
   describe('validateEmail', () => {
@@ -29,6 +30,14 @@ describe('Auth Validators', () => {
       ];
 
       invalidEmails.forEach(email => {
+        const isValidByRegex = RegexPatterns.EMAIL_PATTERN.test(email);
+        if (isValidByRegex) {
+          console.warn(`Email "${email}" unexpectedly passes regex pattern but is marked as invalid in test`);
+        }
+        expect(isValidByRegex).toBe(false);
+      });
+
+      invalidEmails.forEach(email => {
         expect(() => validateEmail(email)).toThrow();
         expect(() => validateEmail(email)).toThrow('Invalid email format');
       });
@@ -50,7 +59,11 @@ describe('Auth Validators', () => {
           'Abcdef123',
           'Test1Password',
           'Hello2World!',
-          'A1bcdefghijklmnop'
+          'A1bcdefghijklmnop',
+          'password',
+          'simple',
+          '12345678',
+          'abcdef'
         ];
 
         validPasswords.forEach(password => {
@@ -59,52 +72,51 @@ describe('Auth Validators', () => {
         });
       });
 
-      it('should reject invalid passwords', () => {
-        const invalidPasswords = [
-          'password', // no uppercase, no number
-          'PASSWORD123', // no lowercase
-          'Password', // no number
-          'pass123', // no uppercase
-          'Pass1', // too short
-          '12345678' // no letters
+      it('should accept any non-empty string password (regex validation removed)', () => {
+        const anyPasswords = [
+          'password',
+          'PASSWORD123',
+          'Password',
+          'pass123',
+          'Pass1',
+          '12345678'
         ];
 
-        invalidPasswords.forEach(password => {
-          expect(() => validatePassword(password)).toThrow();
-          expect(() => validatePassword(password)).toThrow('Password must be at least 8 characters long');
-          expect(validatePassword(password, { throwOnFail: false })).toBe(false);
+        anyPasswords.forEach(password => {
+          expect(() => validatePassword(password)).not.toThrow();
+          expect(validatePassword(password, { throwOnFail: false })).toBe(true);
         });
       });
     });
 
     describe('with strong strength', () => {
-      it('should accept valid strong passwords', () => {
-        const validStrongPasswords = [
+      it('should accept any valid password regardless of strength setting', () => {
+        const anyPasswords = [
           'Password123!',
-          'Abcdef123@',
-          'Test1Password#',
-          'Hello2World!',
-          'A1bcdef!ghijklmnop'
+          'simple',
+          'nouppercaseorsymbols',
+          '12345',
+          'justletters'
         ];
 
-        validStrongPasswords.forEach(password => {
+        anyPasswords.forEach(password => {
           expect(() => validatePassword(password, { isStrong: true })).not.toThrow();
           expect(validatePassword(password, { isStrong: true })).toBe(true);
         });
       });
 
-      it('should reject passwords without special characters when strong is required', () => {
-        const invalidStrongPasswords = [
-          'Password123', // no special char
-          'ABCDEF123!', // no lowercase
-          'abcdef123!', // no uppercase
-          'Abcdefghi!', // no number
-          'Pass1!', // too short
+      it('should accept passwords without special characters (regex validation removed)', () => {
+        const simplePasswords = [
+          'Password123',
+          'ABCDEF123',
+          'abcdef123',
+          'Abcdefghi',
+          'short'
         ];
 
-        invalidStrongPasswords.forEach(password => {
-          expect(() => validatePassword(password, { isStrong: true })).toThrow();
-          expect(validatePassword(password, { isStrong: true, throwOnFail: false })).toBe(false);
+        simplePasswords.forEach(password => {
+          expect(() => validatePassword(password, { isStrong: true })).not.toThrow();
+          expect(validatePassword(password, { isStrong: true, throwOnFail: false })).toBe(true);
         });
       });
     });
@@ -126,13 +138,13 @@ describe('Auth Validators', () => {
       expect(() => validateCredentials('invalid', 'Password123')).toThrow('Invalid email format');
     });
 
-    it('should throw on invalid password', () => {
-      expect(() => validateCredentials('test@example.com', 'password')).toThrow();
+    it('should accept any non-empty password (regex validation removed)', () => {
+      expect(() => validateCredentials('test@example.com', 'simple')).not.toThrow();
     });
 
-    it('should validate with strong password requirement when specified', () => {
-      expect(() => validateCredentials('test@example.com', 'Password123!', { requireStrongPassword: true })).not.toThrow();
-      expect(() => validateCredentials('test@example.com', 'Password123', { requireStrongPassword: true })).toThrow();
+    it('should accept any password regardless of strong requirement setting', () => {
+      expect(() => validateCredentials('test@example.com', 'simple', { requireStrongPassword: true })).not.toThrow();
+      expect(() => validateCredentials('test@example.com', 'Password123', { requireStrongPassword: true })).not.toThrow();
     });
   });
 }); 

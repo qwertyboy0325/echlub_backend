@@ -33,7 +33,55 @@ export class RoomController {
     this.closeRoomUseCase = new CloseRoomUseCase(roomRepository, eventPublisher);
   }
 
-  // 建立房間
+  /**
+   * @swagger
+   * /api/collaboration/rooms:
+   *   post:
+   *     summary: Create a new collaboration room
+   *     tags: [Collaboration]
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - ownerId
+   *             properties:
+   *               ownerId:
+   *                 type: string
+   *                 description: ID of the room owner
+   *               maxPlayers:
+   *                 type: integer
+   *                 default: 10
+   *                 description: Maximum number of players allowed in the room
+   *               allowRelay:
+   *                 type: boolean
+   *                 default: true
+   *                 description: Whether to allow TURN relay
+   *               latencyTargetMs:
+   *                 type: integer
+   *                 default: 100
+   *                 description: Target latency in milliseconds
+   *               opusBitrate:
+   *                 type: integer
+   *                 default: 32000
+   *                 description: Opus codec bitrate for audio
+   *     responses:
+   *       201:
+   *         description: Room created successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 message:
+   *                   type: string
+   *                 roomId:
+   *                   type: string
+   *       500:
+   *         description: Server error
+   */
   async createRoom(req: Request, res: Response): Promise<void> {
     try {
       const dto: CreateRoomDTO = {
@@ -60,7 +108,58 @@ export class RoomController {
     }
   }
 
-  // 更新房間規則
+  /**
+   * @swagger
+   * /api/collaboration/rooms/{id}/rules:
+   *   put:
+   *     summary: Update room rules
+   *     tags: [Collaboration]
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         description: Room ID
+   *         schema:
+   *           type: string
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - ownerId
+   *             properties:
+   *               ownerId:
+   *                 type: string
+   *                 description: ID of the room owner (must match the original owner)
+   *               maxPlayers:
+   *                 type: integer
+   *                 description: Maximum number of players allowed in the room
+   *               allowRelay:
+   *                 type: boolean
+   *                 description: Whether to allow TURN relay
+   *               latencyTargetMs:
+   *                 type: integer
+   *                 description: Target latency in milliseconds
+   *               opusBitrate:
+   *                 type: integer
+   *                 description: Opus codec bitrate for audio
+   *     responses:
+   *       200:
+   *         description: Room rules updated successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 message:
+   *                   type: string
+   *       404:
+   *         description: Room not found
+   *       500:
+   *         description: Server error
+   */
   async updateRoomRules(req: Request, res: Response): Promise<void> {
     try {
       const dto: UpdateRoomRulesDTO = {
@@ -87,7 +186,48 @@ export class RoomController {
     }
   }
 
-  // 關閉房間
+  /**
+   * @swagger
+   * /api/collaboration/rooms/{id}/close:
+   *   post:
+   *     summary: Close a collaboration room
+   *     tags: [Collaboration]
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         description: Room ID
+   *         schema:
+   *           type: string
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - ownerId
+   *             properties:
+   *               ownerId:
+   *                 type: string
+   *                 description: ID of the room owner (must match the original owner)
+   *     responses:
+   *       200:
+   *         description: Room closed successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 message:
+   *                   type: string
+   *       404:
+   *         description: Room not found
+   *       403:
+   *         description: Forbidden - Not the room owner
+   *       500:
+   *         description: Server error
+   */
   async closeRoom(req: Request, res: Response): Promise<void> {
     try {
       const dto: CloseRoomDTO = {
@@ -110,7 +250,49 @@ export class RoomController {
     }
   }
 
-  // 獲取房間狀態
+  /**
+   * @swagger
+   * /api/collaboration/rooms/{id}:
+   *   get:
+   *     summary: Get room status
+   *     tags: [Collaboration]
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         description: Room ID
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Room information
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 room:
+   *                   type: object
+   *                   properties:
+   *                     id:
+   *                       type: string
+   *                     ownerId:
+   *                       type: string
+   *                     active:
+   *                       type: boolean
+   *                     maxPlayers:
+   *                       type: integer
+   *                     currentPlayers:
+   *                       type: array
+   *                       items:
+   *                         type: string
+   *                     rules:
+   *                       type: object
+   *       404:
+   *         description: Room not found
+   *       500:
+   *         description: Server error
+   */
   async getRoomStatus(req: Request, res: Response): Promise<void> {
     try {
       const roomRepository = new RoomRepository();

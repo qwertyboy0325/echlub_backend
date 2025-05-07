@@ -10,6 +10,7 @@ import { initAuthModule } from './modules/auth';
 import { errorHandlerMiddleware } from './shared/infrastructure/middlewares/errorHandlerMiddleware';
 import { createServer } from 'http';
 import { CollaborationModule } from './modules/collaboration/collaboration.module';
+import { setupSwagger } from './swagger';
 
 dotenv.config();
 
@@ -30,6 +31,36 @@ app.use(limiter);
 
 // CSRF protection - 暫時禁用，因為我們使用JWT進行API認證
 // app.use(csrf({ cookie: true }));
+
+// 設置 Swagger API 文檔
+setupSwagger(app);
+
+/**
+ * @swagger
+ * /health:
+ *   get:
+ *     summary: Health check endpoint
+ *     description: Returns status of the server to confirm it's running
+ *     tags: [System]
+ *     responses:
+ *       200:
+ *         description: Server is healthy
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: ok
+ *                 message:
+ *                   type: string
+ *                   example: Server is up and running
+ */
+// 健康檢查端點
+app.get('/health', (_req, res) => {
+    res.status(200).json({ status: 'ok', message: 'Server is up and running' });
+});
 
 // Database connection
 AppDataSource.initialize()
@@ -72,4 +103,5 @@ const PORT = process.env.PORT || 3000;
 // 啟動 HTTP 伺服器 (同時也是 WebSocket 伺服器)
 httpServer.listen(PORT, () => {
     logger.info(`Server is running on port ${PORT}`);
+    logger.info(`Swagger API documentation available at http://localhost:${PORT}/api-docs`);
 }); 

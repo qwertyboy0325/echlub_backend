@@ -7,8 +7,10 @@ export class RegexPatterns {
    * - Allows standard email format (name@domain.tld)
    * - Requires @ symbol and domain with TLD
    * - Supports subdomains and various TLDs
+   * - Does not allow username to start with a dot
+   * - Does not allow consecutive dots in domain
    */
-  public static readonly EMAIL_PATTERN = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  public static readonly EMAIL_PATTERN = /^[a-zA-Z0-9_%+-][a-zA-Z0-9._%+-]*@([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/;
 
   /**
    * Strong password validation regex
