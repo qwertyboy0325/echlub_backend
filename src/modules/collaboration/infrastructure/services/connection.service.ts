@@ -12,6 +12,7 @@ interface ConnectionHealth {
   state: ConnectionStateType;
   lastUpdated: number;
   reconnectAttempts: number;
+  fallbackMode: 'none' | 'websocket';
 }
 
 export class ConnectionService {
@@ -61,14 +62,16 @@ export class ConnectionService {
           roomId: connection.roomId,
           state,
           lastUpdated: Date.now(),
-          reconnectAttempts: 0
+          reconnectAttempts: 0,
+          fallbackMode: 'none'
         };
         
-        // 如果是已經有記錄的連接，保留重連嘗試次數
+        // 如果是已經有記錄的連接，保留重連嘗試次數和備援模式
         if (this.connectionStates.has(connectionId)) {
           const existing = this.connectionStates.get(connectionId);
           if (existing) {
             health.reconnectAttempts = existing.reconnectAttempts;
+            health.fallbackMode = existing.fallbackMode;
             
             // 如果狀態從斷開恢復，重置重連嘗試次數
             if (state === 'connected' && 
@@ -239,5 +242,95 @@ export class ConnectionService {
     }
     
     return stats;
+  }
+  
+  // 設置連接的備援模式
+  async setConnectionFallbackMode(localPeerId: string, remotePeerId: string, mode: 'none' | 'websocket'): Promise<void> {
+    try {
+      this.logger.info(`Setting fallback mode for connection between ${localPeerId} and ${remotePeerId} to ${mode}`);
+      
+      // 嘗試找到相應的連接 ID (可能是 localPeerId:remotePeerId 或 remotePeerId:localPeerId)
+      const connectionId1 = `${localPeerId}:${remotePeerId}`;
+      const connectionId2 = `${remotePeerId}:${localPeerId}`;
+      
+      let connectionId = '';
+      
+      // 檢查連接是否存在
+      if (this.connectionStates.has(connectionId1)) {
+        connectionId = connectionId1;
+      } else if (this.connectionStates.has(connectionId2)) {
+        connectionId = connectionId2;
+      } else {
+        // 如果連接不存在於內存中，嘗試從數據庫加載
+        try {
+          const connection = await this.peerRepository.findById(connectionId1) || 
+                             await this.peerRepository.findById(connectionId2);
+          
+          if (connection) {
+            connectionId = connection.id;
+            // 如果連接不在內存中，初始化它
+            if (!this.connectionStates.has(connectionId)) {
+              this.connectionStates.set(connectionId, {
+                connectionId,
+                localPeerId: connection.localPeerId,
+                remotePeerId: connection.remotePeerId,
+                roomId: connection.roomId,
+                state: 'connected', // 假設連接是正常的
+                lastUpdated: Date.now(),
+                reconnectAttempts: 0,
+                fallbackMode: 'none'
+              });
+            }
+          } else {
+            this.logger.warn(`No connection found between ${localPeerId} and ${remotePeerId}`);
+            return;
+          }
+        } catch (err) {
+          this.logger.error(`Error finding connection between ${localPeerId} and ${remotePeerId}:`, err);
+          return;
+        }
+      }
+      
+      // 更新連接的備援模式
+      const health = this.connectionStates.get(connectionId);
+      if (health) {
+        health.fallbackMode = mode;
+        health.lastUpdated = Date.now();
+        this.connectionStates.set(connectionId, health);
+        
+        this.logger.info(`Connection ${connectionId} fallback mode set to ${mode}`);
+        
+        // 如果啟用了WebSocket備援，可以減少重連嘗試次數
+        if (mode === 'websocket') {
+          health.reconnectAttempts = Math.max(0, health.reconnectAttempts - 1);
+        }
+      }
+    } catch (error) {
+      this.logger.error(`Error setting fallback mode:`, error);
+      throw error;
+    }
+  }
+  
+  // 獲取連接的備援模式
+  getFallbackMode(connectionId: string): 'none' | 'websocket' {
+    const health = this.connectionStates.get(connectionId);
+    return health ? health.fallbackMode : 'none';
+  }
+  
+  // 檢查連接是否使用備援模式
+  isUsingFallback(connectionId: string): boolean {
+    const health = this.connectionStates.get(connectionId);
+    return health ? health.fallbackMode === 'websocket' : false;
+  }
+  
+  // 獲取使用備援模式的連接數量
+  getFallbackConnectionCount(): number {
+    let count = 0;
+    for (const health of this.connectionStates.values()) {
+      if (health.fallbackMode === 'websocket') {
+        count++;
+      }
+    }
+    return count;
   }
 } 

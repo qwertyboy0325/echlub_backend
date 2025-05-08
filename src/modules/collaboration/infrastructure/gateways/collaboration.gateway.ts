@@ -65,6 +65,10 @@ export class CollaborationGateway {
       socket.on('reconnect-request', (data) => this.handleReconnectRequest(socket, data));
       socket.on('connection-state', (data) => this.handleConnectionState(socket, data));
       socket.on('disconnect', () => this.handleDisconnect(socket));
+      
+      // WebRTC 備援相關事件
+      socket.on('webrtc-fallback-activate', (data) => this.handleWebRTCFallbackActivate(socket, data));
+      socket.on('relay-data', (data) => this.handleRelayData(socket, data));
     });
   }
 
@@ -304,7 +308,7 @@ export class CollaborationGateway {
       // 更新連接狀態
       await this.connectionService.updateConnectionState(data.peerId, data.state as any);
       
-      // 如果連接失敗，可能需要通知其他玩家
+      // 如果連接失敗或斷開，可能需要通知其他玩家
       if (data.state === 'failed' || data.state === 'disconnected') {
         // 獲取與該玩家相關的所有連接
         const connections = await this.peerRepository.findByPeerId(data.peerId);
@@ -321,6 +325,29 @@ export class CollaborationGateway {
             peerId: data.peerId,
             state: data.state
           });
+          
+          // 檢查連接狀態，如果連接失敗，建議使用備援模式
+          if (data.state === 'failed') {
+            // 檢查連接是否已經在使用備援模式
+            const isUsingFallback = await this.checkFallbackModeEnabled(data.peerId, targetPeerId);
+            
+            if (!isUsingFallback) {
+              this.logger.info(`Suggesting WebRTC fallback for failed connection between ${data.peerId} and ${targetPeerId}`);
+              
+              // 向雙方發送建議使用備援模式的訊息
+              this.forwardToClient(targetPeerId, 'webrtc-fallback-suggested', {
+                from: data.peerId,
+                roomId: data.roomId,
+                reason: 'connection_failed'
+              });
+              
+              this.forwardToClient(data.peerId, 'webrtc-fallback-suggested', {
+                from: targetPeerId,
+                roomId: data.roomId,
+                reason: 'connection_failed'
+              });
+            }
+          }
         }
       }
     } catch (error) {
@@ -383,6 +410,99 @@ export class CollaborationGateway {
     } else {
       this.logger.warn(`Cannot forward to peer ${peerId}: not connected`);
     }
+  }
+  
+  // 處理 WebRTC 備援激活請求
+  private async handleWebRTCFallbackActivate(socket: Socket, data: { roomId: string; from: string; to: string }): Promise<void> {
+    try {
+      this.logger.info(`WebRTC fallback activation request from ${data.from} to ${data.to} in room ${data.roomId}`);
+      
+      // 檢查目標玩家是否存在
+      const room = await this.roomRepository.findById(data.roomId);
+      if (!room || !room.hasPlayer(data.to)) {
+        socket.emit('error', {
+          code: 'ERR_PEER_NOT_FOUND',
+          message: `Peer ${data.to} is not in room ${data.roomId}`
+        });
+        return;
+      }
+      
+      // 設置連接使用 WebSocket 備援模式
+      await this.connectionService.setConnectionFallbackMode(data.from, data.to, 'websocket');
+      
+      // 通知對方啟用備援模式
+      this.forwardToClient(data.to, 'webrtc-fallback-needed', {
+        from: data.from,
+        roomId: data.roomId
+      });
+      
+      // 向發起者確認備援模式啟用
+      socket.emit('webrtc-fallback-activated', {
+        to: data.to,
+        success: true
+      });
+      
+      this.logger.info(`WebRTC fallback mode activated between ${data.from} and ${data.to}`);
+    } catch (error) {
+      this.logger.error(`Error activating WebRTC fallback:`, error);
+      socket.emit('error', {
+        message: error.message
+      });
+    }
+  }
+  
+  // 處理通過 WebSocket 中繼的數據
+  private async handleRelayData(socket: Socket, data: { roomId: string; from: string; to: string; payload: any }): Promise<void> {
+    try {
+      // 記錄調試信息時不記錄完整payload以避免日誌過大
+      this.logger.debug(`Relaying data from ${data.from} to ${data.to}, payload size: ${JSON.stringify(data.payload).length} bytes`);
+      
+      // 檢查連接是否確實在使用備援模式
+      // 這可以防止未經授權的中繼請求
+      const isUsingFallback = await this.checkFallbackModeEnabled(data.from, data.to);
+      
+      if (!isUsingFallback) {
+        this.logger.warn(`Fallback not enabled for ${data.from}-${data.to}, rejecting relay request`);
+        socket.emit('error', {
+          code: 'ERR_FALLBACK_NOT_ENABLED',
+          message: 'WebRTC fallback mode not enabled for this connection'
+        });
+        return;
+      }
+      
+      // 轉發數據到目標客戶端
+      this.forwardToClient(data.to, 'relay-data', {
+        from: data.from,
+        payload: data.payload
+      });
+      
+      // 更新統計信息
+      this.recordRelayStats(data.roomId, data.from, data.to);
+    } catch (error) {
+      this.logger.error(`Error relaying data:`, error);
+      socket.emit('error', {
+        message: error.message
+      });
+    }
+  }
+  
+  // 檢查連接是否已啟用備援模式
+  private async checkFallbackModeEnabled(from: string, to: string): Promise<boolean> {
+    const connectionId1 = `${from}:${to}`;
+    const connectionId2 = `${to}:${from}`;
+    
+    return this.connectionService.isUsingFallback(connectionId1) || 
+           this.connectionService.isUsingFallback(connectionId2);
+  }
+  
+  // 記錄中繼數據統計
+  private recordRelayStats(roomId: string, from: string, to: string): void {
+    // 這裡可以添加代碼來記錄中繼數據的統計信息
+    // 例如中繼數據的數量，大小等
+    // 在此示例中，我們只記錄總覽統計
+    
+    // 更新房間連接統計
+    this.updateRoomStats(roomId);
   }
   
   // 更新房間連接統計
